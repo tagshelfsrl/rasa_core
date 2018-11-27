@@ -9,7 +9,7 @@ from typing import Any, List, Dict, Text, Optional, Tuple
 from rasa_core import utils
 from rasa_core.domain import Domain
 from rasa_core.featurizers import (
-    MaxHistoryTrackerFeaturizer, BinarySingleStateFeaturizer)
+    MaxHistoryTrackerFeaturizer, BinarySingleStateFeaturizer, FullDialogueTrackerFeaturizer)
 from rasa_core.featurizers import TrackerFeaturizer
 from rasa_core.policies.policy import Policy
 from rasa_core.trackers import DialogueStateTracker
@@ -31,7 +31,8 @@ class KerasPolicy(Policy):
     @staticmethod
     def _standard_featurizer(max_history=None):
         return MaxHistoryTrackerFeaturizer(BinarySingleStateFeaturizer(),
-                                           max_history=max_history)
+                                           max_history=max_history,
+                                           remove_duplicates=False)
 
     def __init__(self,
                  featurizer: Optional[TrackerFeaturizer] = None,
@@ -134,10 +135,31 @@ class KerasPolicy(Policy):
               domain: Domain,
               **kwargs: Any
               ) -> None:
-
+        import numpy as np
         training_data = self.featurize_for_training(training_trackers,
                                                     domain,
                                                     **kwargs)
+        print(training_data.X.shape, training_data.y.shape)
+        i_success = domain.index_for_action('success')
+        i_fail = domain.index_for_action('fail')
+        new_X = []
+        new_y = []
+        total_yes = 0
+        total_no = 0
+        for X, y in zip(training_data.X, training_data.y):
+            if y.argmax(axis=-1) == i_success:
+                new_X.append(X)
+                new_y.append(y[-2:])
+                total_yes += 1
+            elif y.argmax(axis=-1) == i_fail:
+                new_X.append(X)
+                new_y.append(y[-2:])
+                total_no += 1
+
+        print(total_yes, total_no)
+        training_data.X = np.array(new_X)
+        training_data.y = np.array(new_y)
+        print(training_data.X.shape, training_data.y.shape)
 
         # noinspection PyPep8Naming
         shuffled_X, shuffled_y = training_data.shuffled_X_y()
@@ -204,8 +226,10 @@ class KerasPolicy(Policy):
         with self.graph.as_default(), self.session.as_default():
             y_pred = self.model.predict(X, batch_size=1)
 
+        n = len(domain.action_names)
+
         if len(y_pred.shape) == 2:
-            return y_pred[-1].tolist()
+            return [0] * (n - 2) + y_pred[-1].tolist()
         elif len(y_pred.shape) == 3:
             return y_pred[0, -1].tolist()
 
