@@ -13,6 +13,10 @@ This project adheres to `Semantic Versioning`_ starting with version 0.2.0.
 
 Added
 -----
+- `TwoStageFallbackPolicy` which asks the user for confirmation if the NLU
+  confidence is low for an intent, for clarification if they deny the suggested
+  intent, and does finally an ultimate fallback if it does not get the intent
+  right
 
 Removed
 -------
