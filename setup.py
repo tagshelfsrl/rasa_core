@@ -27,7 +27,7 @@ tests_requires = [
 
 install_requires = [
     "jsonpickle~=1.0",
-    "redis~=2.0",
+    "redis>=2,<5",
     "fakeredis~=0.10.0",
     "pymongo~=3.7",
     "numpy~=1.16",
